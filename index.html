@@ -113,6 +113,20 @@
         .center-dot { width: 10px; height: 10px; background: var(--teal); border-radius: 50%; position: absolute; z-index: 2; }
         .qibla-deg { font-size: 13px; color: var(--gold); font-weight: 700; margin-bottom: 14px; }
         .gps-bar { display: flex; justify-content: center; align-items: center; gap: 8px; background: var(--teal-dim); border: 1px solid rgba(19,180,160,0.18); border-radius: 10px; padding: 10px 14px; font-size: 12px; color: var(--teal); cursor: default; }
+        .gps-info { margin-top: 10px; border: 1px solid rgba(19,180,160,0.18); border-radius: 8px; background: rgba(8,22,18,0.72); padding: 10px 12px; text-align: right; }
+        .gps-info-title { color: var(--gold); font-size: 12px; font-weight: 700; margin-bottom: 8px; }
+        .gps-info-row { display: flex; justify-content: space-between; gap: 12px; padding: 4px 0; border-top: 1px solid rgba(255,255,255,0.04); font-size: 11px; }
+        .gps-info-title + .gps-info-row { border-top: 0; }
+        .gps-info-label { color: var(--muted); flex-shrink: 0; }
+        .gps-info-value { color: var(--text); direction: ltr; text-align: left; word-break: break-word; }
+        .gps-info-status { color: var(--teal); direction: rtl; text-align: left; }
+        .gps-info-status.warn { color: var(--gold); }
+        .gps-info-status.error { color: #e06060; }
+        .gps-log { margin-top: 8px; display: flex; flex-direction: column; gap: 6px; }
+        .gps-log-item { border-top: 1px solid rgba(255,255,255,0.04); padding-top: 6px; font-size: 10px; color: var(--muted); line-height: 1.45; }
+        .gps-log-item.accepted { color: var(--teal); }
+        .gps-log-item.rejected { color: var(--gold); }
+        .gps-log-coords { color: var(--text); direction: ltr; display: inline-block; }
         
         .footer { text-align: center; font-size: 9px; letter-spacing: 2px; color: rgba(255,255,255,0.15); text-transform: uppercase; padding: 20px 0 10px; }
         /* Simulation panel */
@@ -230,6 +244,50 @@
             <span>📡</span>
             <span id="gps-txt">يرجى تفعيل GPS لربط الإحداثيات العالمية</span>
         </div>
+        <div class="gps-info" id="gps-info">
+            <div class="gps-info-title">مراقبة مصدر الإحداثيات</div>
+            <div class="gps-info-row">
+                <span class="gps-info-label">المصدر</span>
+                <span class="gps-info-value" id="gps-source">navigator.geolocation.watchPosition</span>
+            </div>
+            <div class="gps-info-row">
+                <span class="gps-info-label">طريقة الطلب</span>
+                <span class="gps-info-value" id="gps-request">enableHighAccuracy=true · maximumAge=0</span>
+            </div>
+            <div class="gps-info-row">
+                <span class="gps-info-label">سياسة التطبيق</span>
+                <span class="gps-info-status" id="gps-policy">لا IP، لا مدينة افتراضية، قبول الدقة العالية فقط</span>
+            </div>
+            <div class="gps-info-row">
+                <span class="gps-info-label">الحالة</span>
+                <span class="gps-info-status warn" id="gps-monitor-status">في انتظار GPS، دون IP أو موقع افتراضي</span>
+            </div>
+            <div class="gps-info-row">
+                <span class="gps-info-label">آخر قراءة</span>
+                <span class="gps-info-value" id="gps-monitor-coords">--</span>
+            </div>
+            <div class="gps-info-row">
+                <span class="gps-info-label">الموقع المستخدم</span>
+                <span class="gps-info-value" id="gps-monitor-used">--</span>
+            </div>
+            <div class="gps-info-row">
+                <span class="gps-info-label">الدقة</span>
+                <span class="gps-info-value" id="gps-monitor-accuracy">--</span>
+            </div>
+            <div class="gps-info-row">
+                <span class="gps-info-label">آخر تحديث</span>
+                <span class="gps-info-value" id="gps-monitor-time">--</span>
+            </div>
+            <div class="gps-info-row">
+                <span class="gps-info-label">المقبول / المرفوض</span>
+                <span class="gps-info-value" id="gps-monitor-counts">0 / 0</span>
+            </div>
+            <div class="gps-info-row">
+                <span class="gps-info-label">الحركة المرصودة</span>
+                <span class="gps-info-value" id="gps-monitor-movement">--</span>
+            </div>
+            <div class="gps-log" id="gps-log"></div>
+        </div>
     </div>
 
     <div class="footer">SYSTEM MANAGER · LORD · AL-WASFA AL-MAFKOUDA</div>
@@ -249,8 +307,16 @@ let gpsTrackInterval = null;
 let gpsWatchId = null;
 let latestGpsPos = null;
 let updateTimesInterval = null;
-const GPS_REQUIRED_ACCURACY_M = 500;
+const GPS_REQUIRED_ACCURACY_M = 100;
 const GPS_OPTIONS = { enableHighAccuracy: true, timeout: 20000, maximumAge: 0 };
+const GPS_LOG_LIMIT = 8;
+let gpsMonitor = {
+    accepted: 0,
+    rejected: 0,
+    lastAccepted: null,
+    totalKm: 0,
+    log: [],
+};
 
 const SIM_MODE = new URLSearchParams(window.location.search).get('simulation_test') === 'true';
 if (SIM_MODE) console.warn('[SIM] وضع المحاكاة مفعّل: تونس → نابل · طريق A1 · 50 كم/س');
@@ -550,12 +616,144 @@ function resetLocationView(message) {
     document.getElementById('needle').style.transform = 'translateX(-50%) rotate(0deg)';
     document.getElementById('zone-title').textContent = 'أقرب المساجد إليكم';
     setHistoricalPlaceholder('في انتظار تحديد GPS...');
+    resetGpsMonitor(message);
     mosqueState(message);
 }
 
 function isAccurateGpsPosition(pos) {
     const acc = pos && pos.coords ? pos.coords.accuracy : Infinity;
     return Number.isFinite(acc) && acc <= GPS_REQUIRED_ACCURACY_M;
+}
+
+function setGpsMonitorText(id, value) {
+    const el = document.getElementById(id);
+    if (el) el.textContent = value;
+}
+
+function setGpsMonitorStatus(message, level = 'warn') {
+    const el = document.getElementById('gps-monitor-status');
+    if (!el) return;
+    el.textContent = message;
+    el.className = 'gps-info-status';
+    if (level) el.classList.add(level);
+}
+
+function formatGpsAccuracy(acc) {
+    return Number.isFinite(acc) ? `${Math.round(acc)} م` : '--';
+}
+
+function formatGpsTime(ts) {
+    return ts ? new Date(ts).toLocaleTimeString('ar-TN') : '--';
+}
+
+function formatGpsCoords(coords) {
+    if (!coords) return '--';
+    return `${coords.latitude.toFixed(6)}, ${coords.longitude.toFixed(6)}`;
+}
+
+function renderGpsLog() {
+    const logEl = document.getElementById('gps-log');
+    if (!logEl) return;
+    logEl.innerHTML = '';
+    gpsMonitor.log.forEach(entry => {
+        const item = document.createElement('div');
+        item.className = `gps-log-item ${entry.accepted ? 'accepted' : 'rejected'}`;
+
+        const status = document.createElement('span');
+        status.textContent = `${entry.accepted ? 'مقبول' : 'مرفوض'} · ${entry.time} · `;
+
+        const coords = document.createElement('span');
+        coords.className = 'gps-log-coords';
+        coords.textContent = entry.coords;
+
+        const meta = document.createElement('span');
+        meta.textContent = ` · دقة ${entry.accuracy} · ${entry.reason}`;
+
+        item.append(status, coords, meta);
+        logEl.appendChild(item);
+    });
+}
+
+function resetGpsMonitor(status = 'في انتظار GPS، دون IP أو موقع افتراضي') {
+    gpsMonitor = { accepted: 0, rejected: 0, lastAccepted: null, totalKm: 0, log: [] };
+    setGpsMonitorText('gps-source', 'navigator.geolocation.watchPosition');
+    setGpsMonitorText('gps-request', `enableHighAccuracy=true · maximumAge=0 · accepted<=${GPS_REQUIRED_ACCURACY_M}m`);
+    setGpsMonitorStatus(status, 'warn');
+    setGpsMonitorText('gps-monitor-coords', '--');
+    setGpsMonitorText('gps-monitor-used', '--');
+    setGpsMonitorText('gps-monitor-accuracy', '--');
+    setGpsMonitorText('gps-monitor-time', '--');
+    setGpsMonitorText('gps-monitor-counts', '0 / 0');
+    setGpsMonitorText('gps-monitor-movement', '--');
+    renderGpsLog();
+}
+
+function recordGpsReading(pos, accepted, reason) {
+    const coords = pos.coords;
+    const timestamp = pos.timestamp || Date.now();
+    const coordsText = formatGpsCoords(coords);
+    const accuracyText = formatGpsAccuracy(coords.accuracy);
+    let movementText = '--';
+
+    if (accepted) {
+        gpsMonitor.accepted++;
+        if (gpsMonitor.lastAccepted) {
+            const movedKm = haversineKm(
+                gpsMonitor.lastAccepted.latitude,
+                gpsMonitor.lastAccepted.longitude,
+                coords.latitude,
+                coords.longitude
+            );
+            gpsMonitor.totalKm += movedKm;
+            movementText = `${Math.round(movedKm * 1000)} م من آخر نقطة · إجمالي ${gpsMonitor.totalKm.toFixed(2)} كم`;
+        } else {
+            movementText = 'أول نقطة GPS مقبولة';
+        }
+        gpsMonitor.lastAccepted = {
+            latitude: coords.latitude,
+            longitude: coords.longitude,
+            accuracy: coords.accuracy,
+            timestamp,
+        };
+        setGpsMonitorText('gps-monitor-used', coordsText);
+        setGpsMonitorStatus('مقبول: إحداثيات GPS عالية الدقة', '');
+    } else {
+        gpsMonitor.rejected++;
+        movementText = gpsMonitor.lastAccepted
+            ? `آخر نقطة مقبولة منذ ${formatGpsTime(gpsMonitor.lastAccepted.timestamp)}`
+            : 'لا توجد نقطة GPS مقبولة بعد';
+        setGpsMonitorStatus(`مرفوض: ${reason}`, 'warn');
+    }
+
+    gpsMonitor.log.unshift({
+        accepted,
+        reason,
+        coords: coordsText,
+        accuracy: accuracyText,
+        time: formatGpsTime(timestamp),
+    });
+    gpsMonitor.log = gpsMonitor.log.slice(0, GPS_LOG_LIMIT);
+
+    setGpsMonitorText('gps-monitor-coords', coordsText);
+    setGpsMonitorText('gps-monitor-accuracy', accuracyText);
+    setGpsMonitorText('gps-monitor-time', formatGpsTime(timestamp));
+    setGpsMonitorText('gps-monitor-counts', `${gpsMonitor.accepted} / ${gpsMonitor.rejected}`);
+    setGpsMonitorText('gps-monitor-movement', movementText);
+    renderGpsLog();
+}
+
+function recordManualPosition(lat, lng) {
+    gpsMonitor = { accepted: 0, rejected: 0, lastAccepted: null, totalKm: 0, log: [] };
+    setGpsMonitorText('gps-source', 'manual coordinates input');
+    setGpsMonitorText('gps-request', 'manual mode');
+    setGpsMonitorStatus('إدخال يدوي، لا توجد قراءة GPS مباشرة', 'warn');
+    setGpsMonitorText('gps-monitor-coords', `${lat.toFixed(6)}, ${lng.toFixed(6)}`);
+    setGpsMonitorText('gps-monitor-used', `${lat.toFixed(6)}, ${lng.toFixed(6)}`);
+    setGpsMonitorText('gps-monitor-accuracy', 'يدوي');
+    setGpsMonitorText('gps-monitor-time', formatGpsTime(Date.now()));
+    setGpsMonitorText('gps-monitor-counts', 'يدوي');
+    setGpsMonitorText('gps-monitor-movement', '--');
+    renderGpsLog();
 }
 
 async function findNearbyMosques(lat, lon) {
@@ -726,15 +924,19 @@ window.onload = function() {
 
         if (SIM_MODE) {
             document.getElementById('sim-panel').style.display = 'block';
+            setGpsMonitorText('gps-source', 'simulation_test route');
+            setGpsMonitorText('gps-request', 'محاكاة داخلية لاختبار التتبع');
             simSegIdx = 0; simSegDist = 0;
             const [sLat, sLng] = SIM_ROUTE[0];
-            latestGpsPos = { coords: { latitude: sLat, longitude: sLng, accuracy: 15 } };
+            latestGpsPos = { coords: { latitude: sLat, longitude: sLng, accuracy: 15 }, timestamp: Date.now() };
+            recordGpsReading(latestGpsPos, true, 'محاكاة اختبار');
             initApp(sLat, sLng);
             updateSimPanel(sLat, sLng);
             console.log('[SIM] انطلقت من تونس باتجاه نابل · كل 5 ثوانٍ = ~69م');
 
             function simApplyPos(lat, lng, done) {
-                latestGpsPos = { coords: { latitude: lat, longitude: lng, accuracy: 15 } };
+                latestGpsPos = { coords: { latitude: lat, longitude: lng, accuracy: 15 }, timestamp: Date.now() };
+                recordGpsReading(latestGpsPos, true, done ? 'محاكاة: الوصول' : 'محاكاة: نقطة جديدة');
                 if (done) {
                     updateSimPanel(lat, lng);
                     document.getElementById('sim-location-name').textContent = '🏁 وصلت إلى نابل!';
@@ -775,12 +977,14 @@ window.onload = function() {
         if (!navigator.geolocation) {
             document.getElementById('gps-txt').textContent = '⚠️ المتصفح لا يدعم تحديد الموقع — يرجى استخدام متصفح حديث';
             document.getElementById('gps-txt').style.color = '#e06060';
+            setGpsMonitorStatus('المتصفح لا يدعم Geolocation API', 'error');
             mosqueState('⚠️ المتصفح لا يدعم تحديد الموقع');
             return;
         }
 
         document.getElementById('gps-txt').textContent = '📡 جاري تحديد موقعك...';
         document.getElementById('gps-txt').style.color = '';
+        setGpsMonitorStatus('طلب GPS عالي الدقة من المتصفح...', 'warn');
 
         function showGpsError(err) {
             const msgs = {
@@ -791,6 +995,7 @@ window.onload = function() {
             const msg = (err && msgs[err.code]) || '⚠️ فشل تحديد الموقع';
             document.getElementById('gps-txt').textContent = msg;
             document.getElementById('gps-txt').style.color = '#e06060';
+            setGpsMonitorStatus(msg, 'error');
             mosqueState(msg);
         }
 
@@ -800,6 +1005,7 @@ window.onload = function() {
             if (!isAccurateGpsPosition(pos)) {
                 const accText = Number.isFinite(acc) ? `${Math.round(acc)}م` : 'غير معروفة';
                 const msg = `📡 تم تجاهل موقع غير دقيق (${accText}) — في انتظار GPS`;
+                recordGpsReading(pos, false, `الدقة أكبر من ${GPS_REQUIRED_ACCURACY_M}م`);
                 document.getElementById('gps-txt').textContent = msg;
                 document.getElementById('gps-txt').style.color = '#d4a017';
                 if (!initialized) mosqueState('في انتظار إشارة GPS دقيقة...');
@@ -807,6 +1013,7 @@ window.onload = function() {
                 return;
             }
             latestGpsPos = pos;
+            recordGpsReading(pos, true, `الدقة ضمن ${GPS_REQUIRED_ACCURACY_M}م`);
             if (!initialized) {
                 initialized = true;
                 initApp(pos.coords.latitude, pos.coords.longitude);
@@ -862,6 +1069,7 @@ window.onload = function() {
             posError.style.display = 'block';
             return;
         }
+        recordManualPosition(lat, lon);
         initApp(lat, lon);
     }
 
@@ -870,6 +1078,11 @@ window.onload = function() {
             document.getElementById('manual-coords').value = Number.isFinite(currentLat) && Number.isFinite(currentLng)
                 ? `${currentLat.toFixed(6)}, ${currentLng.toFixed(6)}`
                 : '';
+            if (Number.isFinite(currentLat) && Number.isFinite(currentLng)) {
+                recordManualPosition(currentLat, currentLng);
+            } else {
+                setGpsMonitorStatus('الوضع اليدوي: أدخل الإحداثيات بنفسك', 'warn');
+            }
             manualPanel.style.display = 'flex';
         } else {
             manualPanel.style.display = 'none';
