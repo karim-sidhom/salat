@@ -67,10 +67,14 @@
         .hist-meta { font-size: 12px; color: var(--text); margin-bottom: 10px; display: flex; justify-content: space-between; }
         .hist-desc { font-size: 11px; color: var(--muted); line-height: 1.5; margin-bottom: 12px; }
 
-        .mosque-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 24px; }
-        .mosque-card { background: var(--card); border-radius: 12px; padding: 12px 10px; display: flex; align-items: center; justify-content: space-between; gap: 6px; border: 1px solid rgba(255,255,255,0.03); transition: border-color .25s; }
-        .mosque-card:hover { border-color: rgba(19,180,160,0.3); }
-        .mosque-name { font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 110px; }
+        .mosque-list { display: flex; flex-direction: column; gap: 10px; margin-bottom: 24px; }
+        .mosque-item { display: flex; align-items: center; gap: 12px; background: var(--card); border: 1px solid rgba(255,255,255,0.04); border-radius: 12px; padding: 12px 14px; transition: transform .15s, border-color .25s; }
+        .mosque-item:hover { transform: translateY(-1px); border-color: rgba(19,180,160,0.35); }
+        .m-rank { flex-shrink: 0; width: 30px; height: 30px; border-radius: 50%; background: var(--teal-dim); color: var(--teal); display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 13px; }
+        .m-info { flex: 1; min-width: 0; }
+        .m-name { font-size: 13px; font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .m-dist { font-size: 11px; color: var(--gold); margin-top: 2px; }
+        .m-state { font-size: 12px; color: var(--muted); text-align: center; padding: 16px; }
         .btn-map { flex-shrink: 0; padding: 4px 8px; border-radius: 7px; font-size: 11px; font-weight: 600; text-decoration: none; cursor: pointer; background: var(--teal-dim); color: var(--teal); border: 1px solid rgba(19,180,160,0.25); transition: background .2s; white-space: nowrap; }
         .btn-map:hover { background: rgba(19,180,160,0.25); }
         .btn-map.gold { background: var(--gold); color: #000; border: none; box-shadow: 0 2px 8px rgba(212,160,23,0.25); }
@@ -148,9 +152,9 @@
 
     <div class="sec-head">
         <span>🕌</span>
-        <span id="zone-title">المساجد في محيطكم (خرائط مباشر)</span>
+        <span id="zone-title">أقرب المساجد إليكم</span>
     </div>
-    <div class="mosque-grid" id="mosque-grid"></div>
+    <div class="mosque-list" id="mosque-list"></div>
 
     <div class="sec-head"><span>🧭</span><span>اتجاه القبلة</span></div>
     <div class="qibla-wrap">
@@ -347,58 +351,93 @@ function computeQibla(lat, lng) {
     return fixAngle(r2d(Math.atan2(y, x)));
 }
 
-async function getLiveMosques(lat, lon) {
-    const zoneTitle = document.getElementById('zone-title');
-    const grid = document.getElementById('mosque-grid');
-    grid.innerHTML = '<div style="grid-column:1/-1; font-size:12px; color:var(--muted)">جاري البحث في محيط 500 متر...</div>';
+const OVERPASS_MIRRORS = [
+    "https://overpass-api.de/api/interpreter",
+    "https://overpass.kumi.systems/api/interpreter",
+    "https://overpass.private.coffee/api/interpreter",
+];
 
-    // الإستراتيجية التكيفية: المحاولة الأولى في محيط 500 متر
-    let radius = 500; 
-    let data = await callOverpass(lat, lon, radius);
+function haversineKm(lat1, lon1, lat2, lon2) {
+    const R = 6371;
+    const dLat = d2r(lat2 - lat1), dLon = d2r(lon2 - lon1);
+    const a = Math.sin(dLat/2)**2 + Math.cos(d2r(lat1))*Math.cos(d2r(lat2))*Math.sin(dLon/2)**2;
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
 
-    // المحاولة الثانية: إذا لم يتم العثور على أي مسجد، نوسع النطاق تلقائياً إلى 1 كم
-    if (!data || !data.elements || data.elements.length === 0) {
-        radius = 1000;
-        zoneTitle.innerText = "المساجد في محيطكم (نطاق ممتد إلى 1 كم)";
-        grid.innerHTML = '<div style="grid-column:1/-1; font-size:12px; color:var(--muted)">لم نجد في نطاق 500م، جاري تفتيش محيط 1 كم...</div>';
-        data = await callOverpass(lat, lon, radius);
-    } else {
-        zoneTitle.innerText = "المساجد في محيطكم الدقيق (500 متر)";
+async function fetchOverpass(query) {
+    for (const base of OVERPASS_MIRRORS) {
+        const ctrl = new AbortController();
+        const t = setTimeout(() => ctrl.abort(), 8000);
+        try {
+            const res = await fetch(base, { method: "POST", body: query, signal: ctrl.signal });
+            clearTimeout(t);
+            if (!res.ok) continue;
+            const data = await res.json();
+            if (data && Array.isArray(data.elements)) return data;
+        } catch (e) { clearTimeout(t); }
     }
+    return null;
+}
 
-    grid.innerHTML = '';
+function mosqueState(msg) {
+    const list = document.getElementById('mosque-list');
+    list.innerHTML = '';
+    const d = document.createElement('div');
+    d.className = 'm-state';
+    d.textContent = msg;
+    list.appendChild(d);
+}
 
-    if (!data || !data.elements || data.elements.length === 0) {
-        grid.innerHTML = `<div style="grid-column:1/-1; font-size:11px; color:var(--gold)">لم يتم العثور على أي مساجد موثقة في الخرائط الحية ضمن محيط 1 كم.</div>`;
-        return;
-    }
-
-    // عرض أول 4 مساجد تم العثور عليها
-    const items = data.elements.slice(0, 4);
-    items.forEach(el => {
-        const name = (el.tags ? (el.tags['name:ar'] || el.tags.name || el.tags['name:en']) : null) || "مسجد محلي";
-        const mLat = el.lat || (el.center ? el.center.lat : lat);
-        const mLon = el.lon || (el.center ? el.center.lon : lon);
-        
-        const card = document.createElement('div');
-        card.className = 'mosque-card';
-        card.innerHTML = `
-            <span class="mosque-name" title="${name}">${name}</span>
-            <a class="btn-map" href="https://www.google.com/maps/search/?api=1&query=${mLat},${mLon}" target="_blank">الخريطة 📍</a>
-        `;
-        grid.appendChild(card);
+function renderMosques(items, radiusKm) {
+    document.getElementById('zone-title').textContent = `أقرب المساجد إليكم (ضمن ${radiusKm} كم)`;
+    const list = document.getElementById('mosque-list');
+    list.innerHTML = '';
+    items.forEach((m, i) => {
+        const item = document.createElement('div'); item.className = 'mosque-item';
+        const rank = document.createElement('div'); rank.className = 'm-rank'; rank.textContent = i + 1;
+        const info = document.createElement('div'); info.className = 'm-info';
+        const nm = document.createElement('div'); nm.className = 'm-name'; nm.textContent = m.name;
+        const ds = document.createElement('div'); ds.className = 'm-dist'; ds.textContent = `📍 ${m.dist.toFixed(1)} كم`;
+        info.append(nm, ds);
+        const btn = document.createElement('a'); btn.className = 'btn-map'; btn.target = '_blank'; btn.rel = 'noopener';
+        btn.href = `https://www.google.com/maps/search/?api=1&query=${m.lat}%2C${m.lon}`;
+        btn.textContent = 'الخريطة 📍';
+        item.append(rank, info, btn);
+        list.appendChild(item);
     });
 }
 
-async function callOverpass(lat, lon, radius) {
-    const url = `https://overpass-api.de/api/interpreter?data=[out:json][timeout:15];(node["amenity"="place_of_worship"]["religion"="islam"](around:${radius},${lat},${lon});way["amenity"="place_of_worship"]["religion"="islam"](around:${radius},${lat},${lon});relation["amenity"="place_of_worship"]["religion"="islam"](around:${radius},${lat},${lon}););out center;`;
+async function findNearbyMosques(lat, lon) {
+    const cacheKey = `mawaqit_mosques_${lat.toFixed(3)}_${lon.toFixed(3)}`;
     try {
-        const res = await fetch(url);
-        return await res.json();
-    } catch(e) {
-        console.error("Overpass temporary network issue:", e);
-        return null;
+        const c = JSON.parse(localStorage.getItem(cacheKey));
+        if (c && Date.now() - c.ts < 3600000) { renderMosques(c.items, c.radiusKm); return; }
+    } catch (e) {}
+
+    mosqueState('جاري البحث عن أقرب المساجد...');
+    const radii = [5000, 10000, 15000, 25000, 50000];
+    let elements = null, usedRadius = null;
+
+    for (const r of radii) {
+        document.getElementById('zone-title').textContent = `أقرب المساجد إليكم (جاري البحث ضمن ${r/1000} كم)`;
+        const q = `[out:json][timeout:20];(node["amenity"="place_of_worship"]["religion"="islam"](around:${r},${lat},${lon});way["amenity"="place_of_worship"]["religion"="islam"](around:${r},${lat},${lon});relation["amenity"="place_of_worship"]["religion"="islam"](around:${r},${lat},${lon}););out center;`;
+        const data = await fetchOverpass(q);
+        if (data === null) { mosqueState('تعذّر الاتصال بخوادم الخرائط، يرجى المحاولة لاحقاً.'); return; }
+        if (data.elements.length > 0) { elements = data.elements; usedRadius = r; break; }
     }
+
+    if (!elements) { mosqueState('لم يتم العثور على مساجد ضمن 50 كم من موقعكم.'); return; }
+
+    const items = elements.map(el => {
+        const mLat = el.lat ?? el.center?.lat, mLon = el.lon ?? el.center?.lon;
+        const name = (el.tags && (el.tags['name:ar'] || el.tags.name || el.tags['name:en'])) || 'مسجد';
+        return { name, lat: mLat, lon: mLon, dist: haversineKm(lat, lon, mLat, mLon) };
+    }).filter(m => m.lat != null && m.lon != null)
+      .sort((a, b) => a.dist - b.dist)
+      .slice(0, 5);
+
+    try { localStorage.setItem(cacheKey, JSON.stringify({ items, radiusKm: usedRadius/1000, ts: Date.now() })); } catch (e) {}
+    renderMosques(items, usedRadius/1000);
 }
 
 async function reverseGeocode(lat, lon) {
@@ -460,8 +499,7 @@ function initApp(lat, lng) {
     updateTimes();
     setInterval(updateTimes, 60000); 
 
-    // جلب المساجد المحيطة ديناميكياً (الإستراتيجية الذكية: 500 متر ثم التوسع عند الحاجة لـ 1 كم)
-    getLiveMosques(lat, lng);
+    findNearbyMosques(lat, lng);
 
     // تفتيش قاعدة البيانات التاريخية للمعالم
     reverseGeocode(lat, lng).then(geo => {
