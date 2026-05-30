@@ -1,18 +1,17 @@
 const CACHE = 'mawaqit-v1';
 const SHELL = [
-  '/',
-  '/index.html',
-  '/icon.svg',
-  '/manifest.json',
-  'https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&family=Cairo:wght@300;400;600;700&display=swap',
-  'https://cdn.jsdelivr.net/npm/toastify-js/src/toastify.min.css',
-  'https://cdn.jsdelivr.net/npm/toastify-js',
+  './',
+  './index.html',
+  './icon.svg',
+  './icon-192.png',
+  './icon-512.png',
+  './manifest.json',
 ];
 
 self.addEventListener('install', e => {
   e.waitUntil(
     caches.open(CACHE)
-      .then(c => c.addAll(SHELL.map(u => new Request(u, { mode: 'cors' }))))
+      .then(c => c.addAll(SHELL))
       .then(() => self.skipWaiting())
   );
 });
@@ -26,6 +25,8 @@ self.addEventListener('activate', e => {
 });
 
 self.addEventListener('fetch', e => {
+  if (e.request.method !== 'GET') return;
+
   const url = new URL(e.request.url);
 
   // External API calls — network only, don't cache
@@ -39,7 +40,7 @@ self.addEventListener('fetch', e => {
     caches.match(e.request).then(cached => {
       if (cached) return cached;
       return fetch(e.request).then(res => {
-        if (res && res.status === 200 && e.request.method === 'GET') {
+        if (res && res.status === 200) {
           const clone = res.clone();
           caches.open(CACHE).then(c => c.put(e.request, clone));
         }
