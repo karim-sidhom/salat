@@ -204,7 +204,7 @@
 
     <div class="sec-head">
         <span>🏛️</span>
-        <span>أقدم جامع تاريخي في هذه المنطقة</span>
+        <span>أقرب جامع تاريخي موثق</span>
     </div>
     <div class="historical-card" id="historical-card">
         <div class="hist-title" id="hist-name">جاري رصد المعالم التاريخية...</div>
@@ -212,8 +212,8 @@
             <span id="hist-age" style="color: var(--gold); font-weight:600;">العمر: --</span>
             <span id="hist-city" style="color: var(--muted);">المدينة: --</span>
         </div>
-        <div class="hist-desc" id="hist-desc">سيظهر هنا المسجد الأقدم في المدينة المكتشفة مع لمحة تاريخية عنه وعمره الدقيق محسوباً حتى عام 2026.</div>
-        <a id="hist-map-btn" href="#" target="_blank" class="btn-map gold" style="display:inline-block; text-align:center;">🗺️ وجهني لأقدم جامع في الخريطة</a>
+        <div class="hist-desc" id="hist-desc">سيظهر هنا أقرب مسجد تاريخي موثق من قاعدة البيانات.</div>
+        <a id="hist-map-btn" href="#" target="_blank" class="btn-map gold" style="display:inline-block; text-align:center;">🗺️ وجهني لأقرب جامع تاريخي</a>
     </div>
 
     <div class="sec-head">
@@ -401,16 +401,123 @@ function showGpsNotif(text, changed) {
 }
 
 const historicalMosquesDB = [
-    { country: "TN", city: "Tunis", name: "جامع الزيتونة المعمور", yearBuilt: 698, desc: "تأسس في قلب المدينة العتيقة على يد حسان بن النعمان، ويعد منارة علمية ودينية رائدة في المغرب العربي.", lat: 36.7972, lng: 10.1711 },
-    { country: "TN", city: "Kairouan", name: "جامع عقبة بن نافع", yearBuilt: 670, desc: "أول مسجد بني في المغرب العربي ومنطلق الفتوحات الإسلامية والعمارة القيروانية الفذة.", lat: 35.6814, lng: 10.1026 },
-    { country: "SA", city: "Makkah", name: "المسجد الحرام", yearBuilt: 1, desc: "أول بيت وضع للناس على وجه الأرض وقبلة المسلمين بقلب مكة المكرمة.", lat: 21.4225, lng: 39.8262 },
-    { country: "SA", city: "Medina", name: "مسجد قباء", yearBuilt: 622, desc: "أول مسجد بناه النبي محمد صلى الله عليه وسلم في الإسلام عند هجرته إلى المدينة المنورة.", lat: 24.4392, lng: 39.6172 },
-    { country: "EG", city: "Cairo", name: "جامع عمرو بن العاص", yearBuilt: 641, desc: "أول مسجد بني في مصر وقارة إفريقيا بالكامل ويُعرف بـ 'تاج الجوامع'.", lat: 30.0101, lng: 31.2331 },
-    { country: "MA", city: "Fes", name: "جامع القرويين", yearBuilt: 859, desc: "أسسته فاطمة الفهرية وتطور ليكون أقدم جامعة مستمرة في العالم.", lat: 34.0647, lng: -4.9733 },
-    { country: "DZ", city: "Algiers", name: "الجامع الكبير بالجزائر", yearBuilt: 1097, desc: "بناه أمير المرابطين يوسف بن تاشفين ويعد من أقدم معالم العاصمة الجزائرية.", lat: 36.7847, lng: 3.0632 },
-    { country: "TR", city: "Istanbul", name: "جامع آيا صوفيا الكبير", yearBuilt: 1453, desc: "تحول لمسجد بعد فتح القسطنطينية على يد السلطان محمد الفاتح ويعكس عظمة العمارة.", lat: 41.0085, lng: 28.9802 },
-    { country: "SY", city: "Damascus", name: "الجامع الأموي الكبير", yearBuilt: 715, desc: "أحد روائع العمارة الأموية والإسلامية الخالدة، أسسه الوليد بن عبد الملك.", lat: 33.5119, lng: 36.3067 },
-    { country: "IQ", city: "Kufa", name: "مسجد الكوفة المعظم", yearBuilt: 638, desc: "من أوائل المساجد التي بنيت في العراق خارج الجزيرة العربية بطلب من سعد بن أبي وقاص.", lat: 32.0292, lng: 44.4011 }
+    {
+        id: "great_mosque_kairouan",
+        name: "Grande Mosquée de Kairouan",
+        arabicName: "جامع عقبة بن نافع",
+        wilaya: "Kairouan",
+        city: "Kairouan",
+        latitude: 35.681111,
+        longitude: 10.103889,
+        foundationYear: 670,
+        foundationYearLabel: "670",
+        estimatedAgeYearsIn2026: 1356,
+        description: "La Grande Mosquée de Kairouan est l’un des monuments religieux les plus importants du monde islamique occidental. Fondée vers 670 par Oqba Ibn Nafi, elle marque la naissance de Kairouan comme centre religieux, politique et militaire de l’Ifriqiya."
+    },
+    {
+        id: "zitouna_mosque",
+        name: "Mosquée Zitouna",
+        arabicName: "جامع الزيتونة",
+        wilaya: "Tunis",
+        city: "Tunis",
+        latitude: 36.797222,
+        longitude: 10.171111,
+        foundationYear: 699,
+        foundationYearLabel: "699-704",
+        estimatedAgeYearsIn2026: 1322,
+        description: "La mosquée Zitouna est le grand sanctuaire historique de la médina de Tunis. Sa fondation est généralement située entre 699 et 704, dans les premières décennies de l’islamisation de Tunis."
+    },
+    {
+        id: "bou_ftata_mosque",
+        name: "Mosquée Bou Ftata",
+        arabicName: "جامع بوفتاتة",
+        wilaya: "Sousse",
+        city: "Sousse",
+        latitude: 35.822778,
+        longitude: 10.638056,
+        foundationYear: 838,
+        foundationYearLabel: "838-841",
+        estimatedAgeYearsIn2026: 1185,
+        description: "La mosquée Bou Ftata est une petite mosquée aghlabide de Sousse, fondée probablement entre 838 et 841. Elle est connue pour sa façade ancienne, son porche à trois arcs et son inscription de fondation."
+    },
+    {
+        id: "great_mosque_sfax",
+        name: "Grande Mosquée de Sfax",
+        arabicName: "الجامع الكبير بصفاقس",
+        wilaya: "Sfax",
+        city: "Sfax",
+        latitude: 34.735833,
+        longitude: 10.760833,
+        foundationYear: 850,
+        foundationYearLabel: "850",
+        estimatedAgeYearsIn2026: 1176,
+        description: "La Grande Mosquée de Sfax est le principal monument religieux de la médina de Sfax. Fondée vers 850, elle occupe une position centrale dans la ville historique."
+    },
+    {
+        id: "great_mosque_sousse",
+        name: "Grande Mosquée de Sousse",
+        arabicName: "الجامع الكبير بسوسة",
+        wilaya: "Sousse",
+        city: "Sousse",
+        latitude: 35.82695,
+        longitude: 10.639772,
+        foundationYear: 851,
+        foundationYearLabel: "851",
+        estimatedAgeYearsIn2026: 1175,
+        description: "La Grande Mosquée de Sousse est l’un des monuments aghlabides majeurs du Sahel tunisien. Fondée en 851, elle se distingue par son aspect massif et presque fortifié."
+    },
+    {
+        id: "great_mosque_monastir",
+        name: "Grande Mosquée de Monastir",
+        arabicName: "الجامع الكبير بالمنستير",
+        wilaya: "Monastir",
+        city: "Monastir",
+        latitude: 35.775556,
+        longitude: 10.833611,
+        foundationYear: 850,
+        foundationYearLabel: "IXe siècle",
+        estimatedAgeYearsIn2026: 1127,
+        description: "La Grande Mosquée de Monastir est située près du ribat et face à la mer, dans un environnement fortement marqué par l’histoire religieuse et militaire du littoral tunisien."
+    },
+    {
+        id: "three_doors_mosque",
+        name: "Mosquée des Trois Portes",
+        arabicName: "مسجد الأبواب الثلاثة",
+        wilaya: "Kairouan",
+        city: "Kairouan",
+        latitude: 35.676944,
+        longitude: 10.097222,
+        foundationYear: 866,
+        foundationYearLabel: "866",
+        estimatedAgeYearsIn2026: 1160,
+        description: "La mosquée des Trois Portes, aussi appelée mosquée Ibn Khayroun, est l’un des monuments les plus précieux de Kairouan. Fondée en 866, elle est célèbre pour sa façade sculptée à trois arcs."
+    },
+    {
+        id: "great_mosque_mahdia",
+        name: "Grande Mosquée de Mahdia",
+        arabicName: "الجامع الكبير بالمهدية",
+        wilaya: "Mahdia",
+        city: "Mahdia",
+        latitude: 35.503889,
+        longitude: 11.071944,
+        foundationYear: 916,
+        foundationYearLabel: "916",
+        estimatedAgeYearsIn2026: 1110,
+        description: "La Grande Mosquée de Mahdia est un monument majeur de l’époque fatimide. Elle fut fondée en 916 sous le calife al-Mahdi, dans la nouvelle capitale fatimide de Mahdia."
+    },
+    {
+        id: "sayeda_ribat_mosque",
+        name: "Ribat et mosquée de la Sayeda",
+        arabicName: "رباط ومسجد السيدة",
+        wilaya: "Monastir",
+        city: "Monastir",
+        latitude: null,
+        longitude: null,
+        foundationYear: 850,
+        foundationYearLabel: "Milieu du IXe siècle",
+        estimatedAgeYearsIn2026: 1170,
+        description: "Le Ribat et mosquée de la Sayeda est un complexe religieux et défensif de Monastir. Les coordonnées GPS ne sont pas confirmées, donc il n’est pas utilisé pour le calcul du plus proche."
+    }
 ];
 
 function sunPosition(jd) {
@@ -612,7 +719,7 @@ function setHistoricalPlaceholder(message) {
     document.getElementById('hist-name').innerText = message;
     document.getElementById('hist-age').innerText = 'العمر: --';
     document.getElementById('hist-city').innerText = 'المدينة: --';
-    document.getElementById('hist-desc').innerText = 'سيظهر هنا المسجد الأقدم بعد الحصول على إحداثيات GPS دقيقة.';
+    document.getElementById('hist-desc').innerText = 'سيظهر هنا أقرب مسجد تاريخي موثق بعد الحصول على إحداثيات GPS دقيقة.';
     btn.removeAttribute('href');
     btn.setAttribute('aria-disabled', 'true');
     btn.style.pointerEvents = 'none';
@@ -964,33 +1071,28 @@ async function reverseGeocode(lat, lon) {
     return { countryCode: "", city: "", state: "", country: "" };
 }
 
-function updateHistoricalCard(countryCode, city) {
+function updateHistoricalCard(lat, lng) {
     const nameEl = document.getElementById('hist-name');
     const ageEl = document.getElementById('hist-age');
     const cityEl = document.getElementById('hist-city');
     const descEl = document.getElementById('hist-desc');
     const btn = document.getElementById('hist-map-btn');
-    const safeCountryCode = countryCode || "";
-    const safeCity = city || "";
 
-    let match = null;
-    if (safeCountryCode && safeCity) {
-        match = historicalMosquesDB.find(m => m.country === safeCountryCode && (safeCity.includes(m.city) || m.city.includes(safeCity)));
-    }
-    if (!match && safeCountryCode) {
-        match = historicalMosquesDB.find(m => m.country === safeCountryCode);
-    }
+    const match = historicalMosquesDB
+        .filter(m => Number.isFinite(m.latitude) && Number.isFinite(m.longitude))
+        .map(m => ({ ...m, dist: haversineKm(lat, lng, m.latitude, m.longitude) }))
+        .sort((a, b) => a.dist - b.dist)[0];
+
     if (!match) {
-        setHistoricalPlaceholder('تعذّر تحديد المنطقة من إحداثيات GPS');
+        setHistoricalPlaceholder('لا توجد إحداثيات مؤكدة للمساجد التاريخية');
         return;
     }
 
-    const currentYear = 2026;
-    nameEl.innerText = match.name;
-    ageEl.innerText = `العمر: ${currentYear - match.yearBuilt} سنة`;
-    cityEl.innerText = `المدينة: ${match.city}`;
-    descEl.innerText = match.desc;
-    btn.href = `https://www.google.com/maps/search/?api=1&query=${match.lat},${match.lng}`;
+    nameEl.innerText = `${match.arabicName} - ${match.name}`;
+    ageEl.innerText = `العمر: ${match.estimatedAgeYearsIn2026} سنة`;
+    cityEl.innerText = `${match.city} · ${match.dist.toFixed(1)} كم`;
+    descEl.innerText = match.description;
+    btn.href = `https://www.google.com/maps/search/?api=1&query=${match.latitude},${match.longitude}`;
     btn.removeAttribute('aria-disabled');
     btn.style.pointerEvents = '';
     btn.style.opacity = '';
@@ -1034,7 +1136,7 @@ function initApp(lat, lng) {
     // تفتيش قاعدة البيانات التاريخية للمعالم
     geoPromise.then(geo => {
         if (appSeq !== appLocationSeq) return;
-        updateHistoricalCard(geo.countryCode, geo.city);
+        updateHistoricalCard(lat, lng);
         updateGpsMonitorPlaceFromGeo(geo);
         if (document.getElementById('pos-mode-select').value === 'manual') {
             const info = document.getElementById('manual-location-info');
