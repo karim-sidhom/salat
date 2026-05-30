@@ -42,6 +42,14 @@
         .method-selector-wrap { margin-bottom: 18px; text-align: center; }
         .method-select { background: var(--card); color: var(--text); border: 1px solid rgba(212,160,23,0.25); padding: 8px 12px; border-radius: 10px; font-family: 'Cairo', sans-serif; font-size: 12px; width: 100%; outline: none; transition: border-color 0.2s; }
         .method-select:focus { border-color: var(--teal); }
+        .manual-pos-wrap { display: flex; flex-direction: column; gap: 8px; margin-bottom: 18px; }
+        .pos-input { background: var(--card); color: var(--text); border: 1px solid rgba(19,180,160,0.25); padding: 8px 12px; border-radius: 10px; font-family: 'Cairo', sans-serif; font-size: 12px; outline: none; transition: border-color 0.2s; text-align: center; width: 100%; }
+        .pos-input:focus { border-color: var(--teal); }
+        .pos-input::placeholder { color: var(--muted); font-size: 11px; }
+        .apply-pos-btn { background: var(--teal-dim); color: var(--teal); border: 1px solid rgba(19,180,160,0.3); padding: 10px; border-radius: 10px; font-family: 'Cairo', sans-serif; font-size: 12px; font-weight: 700; cursor: pointer; transition: background .2s; width: 100%; }
+        .apply-pos-btn:hover { background: rgba(19,180,160,0.25); }
+        .pos-error { font-size: 11px; color: #e06060; text-align: center; }
+        .manual-location-info { font-size: 12px; color: var(--teal); text-align: center; background: var(--teal-dim); border: 1px solid rgba(19,180,160,0.2); border-radius: 8px; padding: 8px 12px; }
 
         .countdown-wrap { background: var(--deep); border: 1px solid rgba(212,160,23,0.18); border-radius: 18px; padding: 20px; text-align: center; margin-bottom: 20px; position: relative; overflow: hidden; }
         .countdown-wrap::before { content: ''; position: absolute; inset: 0; background: radial-gradient(ellipse 60% 80% at 50% 100%, rgba(212,160,23,0.06), transparent); pointer-events: none; }
@@ -120,6 +128,18 @@
             <option value="egypt">الهيئة المصرية العامة للمساحة (فجر 19.5°، عشاء 17.5°)</option>
             <option value="makkah">أم القرى - مكة المكرمة (فجر 18.5°، عشاء +90 دقيقة)</option>
         </select>
+    </div>
+    <div class="method-selector-wrap">
+        <select id="pos-mode-select" class="method-select">
+            <option value="auto" selected>📡 الموقع التلقائي (GPS)</option>
+            <option value="manual">✏️ إدخال يدوي للإحداثيات</option>
+        </select>
+    </div>
+    <div id="manual-pos-panel" class="manual-pos-wrap" style="display:none;">
+        <input type="text" id="manual-coords" class="pos-input" placeholder="مثال: 36.450354, 10.731993" dir="ltr" autocomplete="off">
+        <button id="apply-pos-btn" class="apply-pos-btn">تطبيق الموقع ✓</button>
+        <div id="pos-error" class="pos-error" style="display:none;"></div>
+        <div id="manual-location-info" class="manual-location-info" style="display:none;"></div>
     </div>
 
     <div class="countdown-wrap">
@@ -441,11 +461,13 @@ async function reverseGeocode(lat, lon) {
         const data = await res.json();
         if(data && data.address) {
             const countryCode = data.address.country_code ? data.address.country_code.toUpperCase() : "";
-            const city = data.address.city || data.address.town || data.address.state || "";
-            return { countryCode, city };
+            const city = data.address.city || data.address.town || data.address.village || data.address.state || "";
+            const state = data.address.state || data.address.region || "";
+            const country = data.address.country || "";
+            return { countryCode, city, state, country };
         }
     } catch(e) { console.error(e); }
-    return { countryCode: "TN", city: "Tunis" }; 
+    return { countryCode: "TN", city: "Tunis", state: "", country: "" };
 }
 
 function updateHistoricalCard(countryCode, city) {
@@ -472,7 +494,10 @@ function initApp(lat, lng) {
     currentLat = lat;
     currentLng = lng;
     
-    document.getElementById('gps-txt').innerText = `الموقع نشط ومربوط بدقة: ${lat.toFixed(4)}, ${lng.toFixed(4)}`;
+    const isManual = document.getElementById('pos-mode-select').value === 'manual';
+    document.getElementById('gps-txt').innerText = isManual
+        ? `موقع يدوي: ${lat.toFixed(4)}, ${lng.toFixed(4)}`
+        : `الموقع نشط ومربوط بدقة: ${lat.toFixed(4)}, ${lng.toFixed(4)}`;
     document.getElementById('global-maps-link').href = `https://www.google.com/maps/search/?api=1&query=mosque&center=${lat},${lng}`;
     
     // حساب وعرض اتجاه القبلة وحركة إبرة البوصلة
@@ -499,24 +524,63 @@ function initApp(lat, lng) {
     // تفتيش قاعدة البيانات التاريخية للمعالم
     reverseGeocode(lat, lng).then(geo => {
         updateHistoricalCard(geo.countryCode, geo.city);
+        if (document.getElementById('pos-mode-select').value === 'manual') {
+            const info = document.getElementById('manual-location-info');
+            const parts = [geo.city, geo.state, geo.country].filter(Boolean);
+            info.textContent = '📍 ' + parts.join('، ');
+            info.style.display = 'block';
+        }
     });
 }
 
 window.onload = function() {
     document.getElementById('hijri-date').innerText = getHijriDate();
-    
-    if (navigator.geolocation) {
-        navigator.geolocation.getCurrentPosition(
-            pos => { initApp(pos.coords.latitude, pos.coords.longitude); },
-            err => {
-                console.warn("GPS Access declined, using absolute defaults (Tunis).");
-                initApp(36.8190, 10.1658);
-            },
-            { enableHighAccuracy: true, timeout: 10000 }
-        );
-    } else {
-        initApp(36.8190, 10.1658);
+
+    const posModeSelect = document.getElementById('pos-mode-select');
+    const manualPanel   = document.getElementById('manual-pos-panel');
+    const applyBtn      = document.getElementById('apply-pos-btn');
+    const posError      = document.getElementById('pos-error');
+
+    function startGPS() {
+        if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(
+                pos => initApp(pos.coords.latitude, pos.coords.longitude),
+                ()  => initApp(36.8190, 10.1658),
+                { enableHighAccuracy: true, timeout: 10000 }
+            );
+        } else {
+            initApp(36.8190, 10.1658);
+        }
     }
+
+    function applyManual() {
+        const raw = document.getElementById('manual-coords').value.trim();
+        posError.style.display = 'none';
+        const parts = raw.split(',');
+        const lat = parseFloat(parts[0]);
+        const lon = parseFloat(parts[1]);
+        if (parts.length < 2 || isNaN(lat) || lat < -90 || lat > 90 || isNaN(lon) || lon < -180 || lon > 180) {
+            posError.textContent = 'يرجى إدخال إحداثيات صحيحة — مثال: 36.450354, 10.731993';
+            posError.style.display = 'block';
+            return;
+        }
+        initApp(lat, lon);
+    }
+
+    posModeSelect.onchange = function() {
+        if (this.value === 'manual') {
+            document.getElementById('manual-coords').value = `${currentLat.toFixed(6)}, ${currentLng.toFixed(6)}`;
+            manualPanel.style.display = 'flex';
+        } else {
+            manualPanel.style.display = 'none';
+            document.getElementById('manual-location-info').style.display = 'none';
+            startGPS();
+        }
+    };
+
+    applyBtn.onclick = applyManual;
+
+    startGPS();
 };
 
 document.getElementById('dl-btn').onclick = function() {
