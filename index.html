@@ -83,6 +83,8 @@
         .m-name { font-size: 13px; font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .m-dist { font-size: 11px; color: var(--gold); margin-top: 2px; }
         .m-state { font-size: 12px; color: var(--muted); text-align: center; padding: 16px; }
+        .load-more-btn { width: 100%; padding: 10px; border-radius: 10px; background: var(--gold-dim); color: var(--gold); border: 1px solid rgba(212,160,23,0.25); font-family: 'Cairo', sans-serif; font-size: 12px; font-weight: 700; cursor: pointer; transition: background .2s; }
+        .load-more-btn:hover { background: rgba(212,160,23,0.25); }
         .btn-map { flex-shrink: 0; padding: 4px 8px; border-radius: 7px; font-size: 11px; font-weight: 600; text-decoration: none; cursor: pointer; background: var(--teal-dim); color: var(--teal); border: 1px solid rgba(19,180,160,0.25); transition: background .2s; white-space: nowrap; }
         .btn-map:hover { background: rgba(19,180,160,0.25); }
         .btn-map.gold { background: var(--gold); color: #000; border: none; box-shadow: 0 2px 8px rgba(212,160,23,0.25); }
@@ -387,11 +389,11 @@ function mosqueState(msg) {
     list.appendChild(d);
 }
 
-function renderMosques(items, radiusKm) {
+function renderMosques(items, radiusKm, shown = 5) {
     document.getElementById('zone-title').textContent = `أقرب المساجد إليكم (ضمن ${radiusKm} كم)`;
     const list = document.getElementById('mosque-list');
     list.innerHTML = '';
-    items.forEach((m, i) => {
+    items.slice(0, shown).forEach((m, i) => {
         const item = document.createElement('div'); item.className = 'mosque-item';
         const rank = document.createElement('div'); rank.className = 'm-rank'; rank.textContent = i + 1;
         const info = document.createElement('div'); info.className = 'm-info';
@@ -404,15 +406,17 @@ function renderMosques(items, radiusKm) {
         item.append(rank, info, btn);
         list.appendChild(item);
     });
+    if (shown < items.length) {
+        const rem = items.length - shown;
+        const more = document.createElement('button');
+        more.className = 'load-more-btn';
+        more.textContent = `عرض 5 مساجد أخرى ··· ${rem} متبقية`;
+        more.onclick = () => renderMosques(items, radiusKm, shown + 5);
+        list.appendChild(more);
+    }
 }
 
 async function findNearbyMosques(lat, lon) {
-    const cacheKey = `mawaqit_mosques_${lat.toFixed(3)}_${lon.toFixed(3)}`;
-    try {
-        const c = JSON.parse(localStorage.getItem(cacheKey));
-        if (c && Date.now() - c.ts < 3600000) { renderMosques(c.items, c.radiusKm); return; }
-    } catch (e) {}
-
     mosqueState('جاري البحث عن أقرب المساجد...');
 
     const D = 0.45;
@@ -445,13 +449,12 @@ async function findNearbyMosques(lat, lon) {
 
     let items = [], radiusKm = 50;
     for (const r of [5, 10, 15, 25, 50]) {
-        items = all.filter(m => m.dist <= r).slice(0, 5);
+        items = all.filter(m => m.dist <= r);
         if (items.length > 0) { radiusKm = r; break; }
     }
 
     if (items.length === 0) { mosqueState('لم يتم العثور على مساجد ضمن 50 كم من موقعكم.'); return; }
 
-    try { localStorage.setItem(cacheKey, JSON.stringify({ items, radiusKm, ts: Date.now() })); } catch (e) {}
     renderMosques(items, radiusKm);
 }
 
